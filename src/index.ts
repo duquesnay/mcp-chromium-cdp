@@ -74,13 +74,17 @@ const TOOLS = [
   },
   {
     name: 'chrome_click',
-    description: 'Click on an element using a CSS selector',
+    description: 'Click on an element using a CSS selector. For React SPAs, use ensureInteractive option to trigger synthetic event handlers.',
     inputSchema: {
       type: 'object',
       properties: {
         selector: {
           type: 'string',
           description: 'CSS selector for the element to click',
+        },
+        ensureInteractive: {
+          type: 'boolean',
+          description: 'If true, performs hover → focus → wait → click sequence for SPA compatibility (React, Vue, Angular). Use when standard click fails to trigger modals/handlers.',
         },
       },
       required: ['selector'],
@@ -310,6 +314,28 @@ const TOOLS = [
       required: ['selector', 'property'],
     },
   },
+  {
+    name: 'chrome_hover',
+    description: 'Hover over an element using a CSS selector. Essential for React SPAs where hover activates synthetic event handlers. Use before chrome_click when dealing with dropdowns, tooltips, or interactive elements that require hover state.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: {
+          type: 'string',
+          description: 'CSS selector for the element to hover',
+        },
+      },
+      required: ['selector'],
+    },
+  },
+  {
+    name: 'chrome_detect_spa',
+    description: 'Detect SPA frameworks on the page (React, Vue, Angular, Svelte). Returns framework names and versions. Use this to determine if ensureInteractive pattern is needed for clicks.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
 
 // Create MCP server
@@ -390,10 +416,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'chrome_click': {
         const selector = args?.selector as string | undefined;
+        const ensureInteractive = args?.ensureInteractive as boolean | undefined;
         if (!selector) {
           throw new Error('Selector is required');
         }
-        const result = await chromeController.click(selector);
+        const result = await chromeController.click(selector, { ensureInteractive });
         return {
           content: [{ type: 'text', text: result }],
         };
@@ -586,6 +613,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error('Selector and property are required');
         }
         const result = await chromeController.getProperty(selector, property);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'chrome_hover': {
+        const selector = args?.selector as string | undefined;
+        if (!selector) {
+          throw new Error('Selector is required');
+        }
+        const result = await chromeController.hover(selector);
+        return {
+          content: [{ type: 'text', text: result }],
+        };
+      }
+
+      case 'chrome_detect_spa': {
+        const result = await chromeController.detectSPAFramework();
         return {
           content: [
             {
