@@ -9,6 +9,7 @@ import { NavigationService } from './services/navigation-service';
 import { PageCheckingService } from './services/page-checking-service';
 import { FormExtractionService } from './services/form-extraction-service';
 import { WaitService } from './services/wait-service';
+import { TextInteractionService } from './services/text-interaction-service';
 
 const execAsync = promisify(exec);
 
@@ -87,6 +88,7 @@ export class ChromeController {
   private formExtractionService: FormExtractionService | null = null;
   private waitService: WaitService | null = null;
   private pageCheckingService: PageCheckingService | null = null;
+  private textInteractionService: TextInteractionService | null = null;
 
   /**
    * Initialize all service instances with the current CDP client
@@ -101,6 +103,7 @@ export class ChromeController {
     this.formExtractionService = new FormExtractionService(this.client);
     this.waitService = new WaitService(this.client);
     this.pageCheckingService = new PageCheckingService(this.client);
+    this.textInteractionService = new TextInteractionService(this.client);
   }
 
   /**
@@ -555,6 +558,52 @@ export class ChromeController {
     } catch (error) {
       throw new Error(`Failed to list tabs: ${error}`);
     }
+  }
+
+  /**
+   * Click an element by its visible text content
+   */
+  async clickByText(options: { text: string; role?: string }): Promise<string> {
+    ValidationService.validateText(options.text);
+    ValidationService.validateRole(options.role);
+    await this.ensureConnected();
+    return this.textInteractionService!.clickByText(options);
+  }
+
+  /**
+   * Type text into an input field by its associated label
+   */
+  async typeByLabel(options: { label: string; text: string }): Promise<string> {
+    ValidationService.validateText(options.label);
+    await this.ensureConnected();
+    return this.textInteractionService!.typeByLabel(options);
+  }
+
+  /**
+   * Extract all interactive elements with their text and metadata
+   */
+  async extractInteractive(): Promise<{
+    elements: Array<{
+      text: string;
+      role: string;
+      selector: string;
+      tagName: string;
+      isVisible: boolean;
+      isEnabled: boolean;
+    }>;
+  }> {
+    await this.ensureConnected();
+    return this.textInteractionService!.extractInteractive();
+  }
+
+  /**
+   * Get a property value from an element
+   */
+  async getProperty(selector: string, property: string): Promise<any> {
+    ValidationService.validateSelector(selector);
+    ValidationService.validatePropertyName(property);
+    await this.ensureConnected();
+    return this.textInteractionService!.getProperty(selector, property);
   }
 
   /**
