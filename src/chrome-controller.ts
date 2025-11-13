@@ -3,6 +3,7 @@ import CDP from 'chrome-remote-interface';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
+import sharp from 'sharp';
 
 const execAsync = promisify(exec);
 
@@ -60,11 +61,53 @@ function findChromiumPath(): string | undefined {
  * automatically attempt to reconnect up to 5 times with a 2-second delay between attempts.
  */
 export class ChromeController {
+  // Connection configuration
+  private static readonly CDP_REMOTE_DEBUGGING_PORT = 9222;
+  private static readonly MAX_RECONNECTION_RETRIES = 5;
+  private static readonly RECONNECTION_RETRY_DELAY_MS = 2000;
+
+  // Screenshot configuration
+  private static readonly DEFAULT_MAX_SCREENSHOT_DIMENSION = 2000;
+
+  // Page checking configuration
+  private static readonly MAX_VISIBLE_ERRORS = 10;
+
+  // Wait operation configuration
+  private static readonly DEFAULT_WAIT_TIMEOUT_MS = 5000;
+  private static readonly MAX_WAIT_TIMEOUT_MS = 30000;
+  private static readonly WAIT_CHECK_INTERVAL_MS = 100;
+
+  // Selector arrays for page checking
+  private static readonly ERROR_SELECTORS = [
+    '[role="alert"]',
+    '.error',
+    '.alert-error',
+    '.alert-danger',
+    '.text-danger',
+    '.is-invalid',
+    '[class*="error"]',
+    '[id*="error"]',
+    '.notification.is-danger',
+    '.message-error'
+  ];
+
+  private static readonly INTERACTIVE_SELECTORS = [
+    'button:not([disabled])',
+    'a[href]',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[role="button"]',
+    '[onclick]',
+    '[tabindex]'
+  ];
+
+  // Instance properties
   private client: CDP.Client | null = null;
   private chrome: chromeLauncher.LaunchedChrome | null = null;
   private reconnecting = false;
-  private maxRetries = 5;
-  private retryDelay = 2000; // milliseconds
+  private maxRetries = ChromeController.MAX_RECONNECTION_RETRIES;
+  private retryDelay = ChromeController.RECONNECTION_RETRY_DELAY_MS;
 
   /**
    * Ensure connection to Chromium with automatic reconnection
@@ -113,7 +156,7 @@ export class ChromeController {
         const chromiumPath = findChromiumPath();
         const launchOptions: any = {
           chromeFlags: [
-            '--remote-debugging-port=9222',
+            `--remote-debugging-port=${ChromeController.CDP_REMOTE_DEBUGGING_PORT}`,
             '--no-first-run',
             '--no-default-browser-check'
           ]
