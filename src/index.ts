@@ -106,10 +106,15 @@ const TOOLS = [
   },
   {
     name: 'chrome_screenshot',
-    description: 'Take a screenshot of the current page (returns base64 encoded PNG)',
+    description: 'Take a screenshot of the current page with automatic resizing to fit API limits (returns base64 encoded PNG with metadata)',
     inputSchema: {
       type: 'object',
-      properties: {},
+      properties: {
+        maxDimension: {
+          type: 'number',
+          description: 'Maximum width or height in pixels (default: 2000px for Claude API compatibility)',
+        },
+      },
     },
   },
   {
@@ -163,6 +168,56 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {},
+    },
+  },
+  {
+    name: 'chrome_check_page',
+    description: 'Quick page state check without screenshot (fast health-check for autonomous agents). Returns URL, title, load state, visible errors, form count, and interactive elements count. Response time < 500ms.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'chrome_extract_forms',
+    description: 'Extract structured form data without custom scripting. Returns fields (name, type, value, placeholder, required, label, validation rules), submit buttons, and fieldsets. Works with standard forms, React forms, and Shadow DOM forms. Identifies filled vs empty fields.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        formSelector: {
+          type: 'string',
+          description: 'Optional CSS selector to target a specific form (e.g., "#login-form"). If not provided, extracts all forms on the page.',
+        },
+      },
+    },
+  },
+  {
+    name: 'chrome_wait_for',
+    description: 'Wait for UI state changes after actions. Returns success status, which conditions were met, actual state, and time elapsed. On timeout, returns current state (not error) so agent can decide next action. Can chain multiple conditions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        element: {
+          type: 'string',
+          description: 'CSS selector for element to wait for (waits until element appears and is visible)',
+        },
+        text: {
+          type: 'string',
+          description: 'Text content to wait for (waits until text is visible on page)',
+        },
+        url: {
+          type: 'string',
+          description: 'URL pattern to wait for (regex pattern, waits until URL matches)',
+        },
+        networkIdle: {
+          type: 'number',
+          description: 'Wait for network idle (milliseconds of no network activity)',
+        },
+        timeout: {
+          type: 'number',
+          description: 'Maximum time to wait in milliseconds (default: 5000ms, max: 30000ms)',
+        },
+      },
     },
   },
 ];
@@ -267,13 +322,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'chrome_screenshot': {
-        const screenshot = await chromeController.screenshot();
+        const maxDimension = (args?.maxDimension as number | undefined) || 2000;
+        const result = await chromeController.screenshot(maxDimension);
         return {
           content: [
             {
               type: 'image',
-              data: screenshot,
+              data: result.screenshot,
               mimeType: 'image/png',
+            },
+            {
+              type: 'text',
+              text: `Screenshot metadata:\n${JSON.stringify(result.metadata, null, 2)}`,
             },
           ],
         };
@@ -319,6 +379,50 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await chromeController.goForward();
         return {
           content: [{ type: 'text', text: result }],
+        };
+      }
+
+      case 'chrome_check_page': {
+        const result = await chromeController.checkPage();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'chrome_extract_forms': {
+        const formSelector = args?.formSelector as string | undefined;
+        const result = await chromeController.extractForms(formSelector);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'chrome_wait_for': {
+        const options = {
+          element: args?.element as string | undefined,
+          text: args?.text as string | undefined,
+          url: args?.url as string | undefined,
+          networkIdle: args?.networkIdle as number | undefined,
+          timeout: args?.timeout as number | undefined,
+        };
+        const result = await chromeController.waitFor(options);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
         };
       }
 
