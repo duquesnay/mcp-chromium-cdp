@@ -11,7 +11,11 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "prepare": "npm run build",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "mcp",
@@ -40,12 +44,16 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "chrome-launcher": "^1.1.2",
-    "chrome-remote-interface": "^0.33.2"
+    "chrome-remote-interface": "^0.33.2",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/chrome-remote-interface": "^0.31.14",
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2"
+    "@vitest/coverage-v8": "^4.0.8",
+    "@vitest/ui": "^4.0.8",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.8"
   },
   "engines": {
     "node": ">=18.0.0"

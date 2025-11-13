@@ -6,3 +6,7 @@ dist/
 *.tsbuildinfo
 test-reconnect.js
 test-auto-reconnect.sh
+
+# Test coverage
+coverage/
+.vitest/
