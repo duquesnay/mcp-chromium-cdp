@@ -147,4 +147,77 @@ export class ValidationService {
       }));
     }
   }
+
+  /**
+   * Validate text content for interaction tools
+   * @throws {Error} JSON error with details if validation fails
+   */
+  static validateText(text: string): void {
+    if (!text || text.trim() === '') {
+      throw new Error(JSON.stringify({
+        error: "INVALID_TEXT",
+        field: "text",
+        message: "Text cannot be empty",
+        example: "Sign In"
+      }));
+    }
+    if (text.length > 1000) {
+      throw new Error(JSON.stringify({
+        error: "INVALID_TEXT",
+        field: "text",
+        message: `Text too long (max 1000 characters), got ${text.length}`,
+        maxLength: 1000
+      }));
+    }
+  }
+
+  /**
+   * Validate ARIA role values
+   * @throws {Error} JSON error with details if validation fails
+   */
+  static validateRole(role: string | undefined): void {
+    if (role === undefined) return; // Optional
+
+    const validRoles = [
+      'button', 'link', 'checkbox', 'radio', 'textbox', 'searchbox',
+      'combobox', 'listbox', 'menuitem', 'tab', 'switch', 'slider'
+    ];
+
+    if (!validRoles.includes(role)) {
+      throw new Error(JSON.stringify({
+        error: "INVALID_ROLE",
+        field: "role",
+        message: `Invalid ARIA role: ${role}`,
+        validRoles: validRoles,
+        example: "button"
+      }));
+    }
+  }
+
+  /**
+   * Validate property name for safe access
+   * @throws {Error} JSON error with details if validation fails
+   */
+  static validatePropertyName(property: string): void {
+    if (!property || property.trim() === '') {
+      throw new Error(JSON.stringify({
+        error: "INVALID_PROPERTY",
+        field: "property",
+        message: "Property name cannot be empty",
+        example: "value"
+      }));
+    }
+
+    // Only allow alphanumeric, underscore, and hyphen
+    const validPattern = /^[a-zA-Z0-9_-]+$/;
+    if (!validPattern.test(property)) {
+      throw new Error(JSON.stringify({
+        error: "INVALID_PROPERTY",
+        field: "property",
+        message: `Property name contains invalid characters: ${property}`,
+        allowedPattern: "alphanumeric, underscore, hyphen only",
+        example: "innerText"
+      }));
+    }
+  }
 }
