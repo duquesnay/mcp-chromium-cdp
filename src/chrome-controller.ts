@@ -3,15 +3,15 @@ import CDP from 'chrome-remote-interface';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
-import { ValidationService } from './services/validation-service';
-import { ScreenshotService } from './services/screenshot-service';
-import { NavigationService } from './services/navigation-service';
-import { PageCheckingService } from './services/page-checking-service';
-import { FormExtractionService } from './services/form-extraction-service';
-import { WaitService } from './services/wait-service';
-import { TextInteractionService } from './services/text-interaction-service';
-import { MessageDetectionService, UIMessage } from './services/message-detection-service';
-import { ElementReadinessService, ReadinessResult } from './services/element-readiness-service';
+import { ValidationService } from './services/validation-service.js';
+import { ScreenshotService } from './services/screenshot-service.js';
+import { NavigationService } from './services/navigation-service.js';
+import { PageCheckingService } from './services/page-checking-service.js';
+import { FormExtractionService } from './services/form-extraction-service.js';
+import { WaitService } from './services/wait-service.js';
+import { TextInteractionService } from './services/text-interaction-service.js';
+import { MessageDetectionService, UIMessage } from './services/message-detection-service.js';
+import { ElementReadinessService, ReadinessResult } from './services/element-readiness-service.js';
 
 const execAsync = promisify(exec);
 
