@@ -12,6 +12,7 @@ import { WaitService } from './services/wait-service.js';
 import { TextInteractionService } from './services/text-interaction-service.js';
 import { MessageDetectionService, UIMessage } from './services/message-detection-service.js';
 import { ElementReadinessService, ReadinessResult } from './services/element-readiness-service.js';
+import { ScrollService } from './services/scroll-service.js';
 
 const execAsync = promisify(exec);
 
@@ -93,6 +94,7 @@ export class ChromeController {
   private textInteractionService: TextInteractionService | null = null;
   private messageDetectionService: MessageDetectionService | null = null;
   private elementReadinessService: ElementReadinessService | null = null;
+  private scrollService: ScrollService | null = null;
 
   /**
    * Initialize all service instances with the current CDP client
@@ -110,6 +112,7 @@ export class ChromeController {
     this.textInteractionService = new TextInteractionService(this.client);
     this.messageDetectionService = new MessageDetectionService(this.client);
     this.elementReadinessService = new ElementReadinessService(this.client);
+    this.scrollService = new ScrollService(this.client);
   }
 
   /**
@@ -715,6 +718,50 @@ export class ChromeController {
       state,
       timeElapsed: 0
     };
+  }
+
+  /**
+   * Scroll the page or an element
+   *
+   * Supports direction-based scrolling with distance specification.
+   * Returns scroll position, boundary detection (top/bottom), and dimensions.
+   * Useful for infinite scroll detection and pagination.
+   */
+  async scroll(options: {
+    direction: 'up' | 'down' | 'top' | 'bottom';
+    distance?: number;
+    selector?: string;
+    behavior?: 'instant' | 'smooth';
+  }): Promise<{
+    position: { x: number; y: number };
+    atTop: boolean;
+    atBottom: boolean;
+    viewportHeight: number;
+    documentHeight: number;
+  }> {
+    if (options.selector) {
+      ValidationService.validateSelector(options.selector);
+    }
+    await this.ensureConnected();
+    return this.scrollService!.scroll(options);
+  }
+
+  /**
+   * Get current scroll position without scrolling
+   * Useful for checking scroll state before/after actions
+   */
+  async getScrollPosition(selector?: string): Promise<{
+    position: { x: number; y: number };
+    atTop: boolean;
+    atBottom: boolean;
+    viewportHeight: number;
+    documentHeight: number;
+  }> {
+    if (selector) {
+      ValidationService.validateSelector(selector);
+    }
+    await this.ensureConnected();
+    return this.scrollService!.getScrollPosition(selector);
   }
 
   /**
