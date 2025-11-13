@@ -60,7 +60,7 @@ const TOOLS = [
   },
   {
     name: 'chrome_execute_script',
-    description: 'Execute JavaScript in the current page and return the result',
+    description: 'Execute JavaScript in the current page and return the result. ADVANCED: Use as last resort when chrome_click, chrome_type, or other structured tools cannot accomplish the task. Prefer semantic tools for better reliability.',
     inputSchema: {
       type: 'object',
       properties: {
