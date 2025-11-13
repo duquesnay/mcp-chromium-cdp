@@ -13,6 +13,7 @@ import { TextInteractionService } from './services/text-interaction-service.js';
 import { MessageDetectionService, UIMessage } from './services/message-detection-service.js';
 import { ElementReadinessService, ReadinessResult } from './services/element-readiness-service.js';
 import { ScrollService } from './services/scroll-service.js';
+import { HoverService } from './services/hover-service.js';
 
 const execAsync = promisify(exec);
 
@@ -95,6 +96,7 @@ export class ChromeController {
   private messageDetectionService: MessageDetectionService | null = null;
   private elementReadinessService: ElementReadinessService | null = null;
   private scrollService: ScrollService | null = null;
+  private hoverService: HoverService | null = null;
 
   /**
    * Initialize all service instances with the current CDP client
@@ -113,6 +115,7 @@ export class ChromeController {
     this.messageDetectionService = new MessageDetectionService(this.client);
     this.elementReadinessService = new ElementReadinessService(this.client);
     this.scrollService = new ScrollService(this.client);
+    this.hoverService = new HoverService(this.client);
   }
 
   /**
@@ -432,8 +435,12 @@ export class ChromeController {
   /**
    * Click on an element using a selector
    * Auto-waits for element to be ready (visible, enabled, stable)
+   *
+   * @param selector - CSS selector for the element to click
+   * @param options.timeout - Maximum time to wait for element readiness
+   * @param options.ensureInteractive - If true, performs hover → focus → wait → click sequence for SPA compatibility
    */
-  async click(selector: string, options?: { timeout?: number }): Promise<string> {
+  async click(selector: string, options?: { timeout?: number; ensureInteractive?: boolean }): Promise<string> {
     ValidationService.validateSelector(selector);
     await this.ensureConnected();
 
@@ -465,7 +472,7 @@ export class ChromeController {
         );
       }
 
-      // Element ready - perform click using CDP's DOM API
+      // Element ready - get element info for interaction
       const { root } = await this.client!.DOM.getDocument();
       const { nodeId } = await this.client!.DOM.querySelector({
         nodeId: root.nodeId,
@@ -476,11 +483,28 @@ export class ChromeController {
         throw new Error(`Element not found: ${selector}`);
       }
 
-      // Get element position and click via Input API
+      // Get element position
       const { model } = await this.client!.DOM.getBoxModel({ nodeId });
       const x = (model.content[0] + model.content[2]) / 2;
       const y = (model.content[1] + model.content[5]) / 2;
 
+      // If ensureInteractive, perform full interaction sequence for SPA compatibility
+      if (options?.ensureInteractive) {
+        // Step 1: Hover element (activates React synthetic event handlers)
+        await this.client!.Input.dispatchMouseEvent({
+          type: 'mouseMoved',
+          x,
+          y
+        });
+
+        // Step 2: Focus element (ensures focus state for React)
+        await this.client!.DOM.focus({ nodeId });
+
+        // Step 3: Wait 50ms for React synthetic event system to initialize
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Step 4 (or direct): Perform click using Input API
       await this.client!.Input.dispatchMouseEvent({
         type: 'mousePressed',
         x,
@@ -497,7 +521,8 @@ export class ChromeController {
         clickCount: 1
       });
 
-      return `Clicked on element: ${selector} (ready in ${readiness.timeElapsed}ms)`;
+      const interactiveNote = options?.ensureInteractive ? ' (with SPA interactive sequence)' : '';
+      return `Clicked on element: ${selector} (ready in ${readiness.timeElapsed}ms)${interactiveNote}`;
     } catch (error) {
       throw new Error(`Failed to click: ${error}`);
     }
@@ -762,6 +787,28 @@ export class ChromeController {
     }
     await this.ensureConnected();
     return this.scrollService!.getScrollPosition(selector);
+  }
+
+  /**
+   * Hover over an element
+   * Essential for React SPAs where hover activates synthetic event handlers
+   */
+  async hover(selector: string): Promise<string> {
+    ValidationService.validateSelector(selector);
+    await this.ensureConnected();
+    return this.hoverService!.hover(selector);
+  }
+
+  /**
+   * Detect SPA framework on the page
+   * Checks for React, Vue, Angular, Svelte
+   */
+  async detectSPAFramework(): Promise<{
+    detected: boolean;
+    frameworks: Array<{ name: string; version?: string }>;
+  }> {
+    await this.ensureConnected();
+    return this.hoverService!.detectSPAFramework();
   }
 
   /**
