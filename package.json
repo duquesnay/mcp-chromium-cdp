@@ -1,0 +1,53 @@
+{
+  "name": "mcp-chromium-cdp",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server for controlling Chromium/Chrome via Chrome DevTools Protocol. Cross-platform with automatic reconnection. Enables AI assistants like Claude to automate browsers.",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "mcp-chromium-cdp": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build",
+    "start": "node build/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "chromium",
+    "chrome",
+    "browser-automation",
+    "cdp",
+    "chrome-devtools-protocol",
+    "claude",
+    "ai",
+    "automation",
+    "reconnection",
+    "cross-platform"
+  ],
+  "author": "duquesnay",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/duquesnay/mcp-chromium-cdp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/duquesnay/mcp-chromium-cdp/issues"
+  },
+  "homepage": "https://github.com/duquesnay/mcp-chromium-cdp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "chrome-launcher": "^1.1.2",
+    "chrome-remote-interface": "^0.33.2"
+  },
+  "devDependencies": {
+    "@types/chrome-remote-interface": "^0.31.14",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
