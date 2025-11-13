@@ -41,7 +41,16 @@
 - Performance: <500ms message detection, <10ms auto-wait fast path
 - Security: Zero script injection vulnerabilities
 
-**Remaining (Sprint 5)**:
+### Sprint 5 - COMPLETE ✅
+**Goal**: Scrolling automation
+
+**Delivered**:
+- AUTO13: Scrolling tool (chrome_scroll)
+- Tests: 230 passing (27 new scroll tests)
+- Features: direction control, distance, element targeting, boundary detection
+- Useful for infinite scroll and pagination workflows
+
+**Remaining (Sprint 6)**:
 - PERF-IMP1: Optimize checkPage() O(n×18) → O(n)
 - PERF-IMP2: Adaptive polling in waitFor()
 - QUALITY-IMP1: Split large methods
@@ -298,14 +307,17 @@
   - Can configure auto-recovery per pattern
 - Effort: 3-4 days
 
-**[ ] AUTO13: Interactive element extraction**
-- As an agent, I want to discover actions so that I don't try selectors blindly
-- Status: ⏸️ DEFERRED
+**[✅] AUTO13: Scrolling tool**
+- As an agent, I want to scroll pages so that I don't need chrome_execute_script for common scroll operations
+- Status: ✅ COMPLETE (Sprint 5)
+- Implementation: ScrollService (215 lines)
 - Acceptance:
-  - chrome_extract_interactive returns buttons, links, inputs, dropdowns
-  - Grouped by functionality
-  - Indicates visibility and interactivity state
-- Effort: 1-2 days
+  - ✅ chrome_scroll supports: direction (up/down/top/bottom), distance (pixels), target element (selector)
+  - ✅ Returns: position (x, y), atBottom, atTop, viewport/document height
+  - ✅ Detects scroll completion (useful for infinite scroll)
+  - ✅ Optional behavior: smooth vs instant (default: instant)
+  - ✅ 27 comprehensive tests passing
+- Impact: Eliminates chrome_execute_script usage for scrolling operations
 
 **[ ] AUTO14: Batch form filling**
 - As an agent, I want to fill forms in one operation so that workflows are faster
