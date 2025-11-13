@@ -221,6 +221,34 @@ const TOOLS = [
     },
   },
   {
+    name: 'chrome_scroll',
+    description: 'Scroll the page or a specific element. Supports direction (up/down/top/bottom), distance (pixels), element targeting (selector), and behavior (instant/smooth). Returns scroll position, boundary detection (atTop/atBottom), and dimensions. Useful for infinite scroll detection and pagination.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        direction: {
+          type: 'string',
+          enum: ['up', 'down', 'top', 'bottom'],
+          description: 'Scroll direction: up (scroll up by distance), down (scroll down by distance), top (scroll to top), bottom (scroll to bottom)',
+        },
+        distance: {
+          type: 'number',
+          description: 'Distance to scroll in pixels (required for up/down, ignored for top/bottom). Must be positive.',
+        },
+        selector: {
+          type: 'string',
+          description: 'Optional CSS selector for element to scroll (default: window/page scrolling)',
+        },
+        behavior: {
+          type: 'string',
+          enum: ['instant', 'smooth'],
+          description: 'Scroll behavior: instant (immediate, default) or smooth (animated)',
+        },
+      },
+      required: ['direction'],
+    },
+  },
+  {
     name: 'chrome_click_text',
     description: 'Click an element by its visible text content (semantic alternative to chrome_click). Uses XPath contains() for text matching. Optionally filter by ARIA role. Returns actionable error with suggestions if 0 or >1 matches found. Prefer this over chrome_execute_script for clicking buttons/links.',
     inputSchema: {
@@ -478,6 +506,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           timeout: args?.timeout as number | undefined,
         };
         const result = await chromeController.waitFor(options);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'chrome_scroll': {
+        const direction = args?.direction as 'up' | 'down' | 'top' | 'bottom' | undefined;
+        const distance = args?.distance as number | undefined;
+        const selector = args?.selector as string | undefined;
+        const behavior = args?.behavior as 'instant' | 'smooth' | undefined;
+
+        if (!direction) {
+          throw new Error('Direction is required');
+        }
+
+        const result = await chromeController.scroll({
+          direction,
+          distance,
+          selector,
+          behavior,
+        });
+
         return {
           content: [
             {
