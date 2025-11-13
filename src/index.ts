@@ -220,6 +220,68 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'chrome_click_text',
+    description: 'Click an element by its visible text content (semantic alternative to chrome_click). Uses XPath contains() for text matching. Optionally filter by ARIA role. Returns actionable error with suggestions if 0 or >1 matches found. Prefer this over chrome_execute_script for clicking buttons/links.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'Visible text to search for (case-sensitive, max 1000 chars)',
+        },
+        role: {
+          type: 'string',
+          description: 'Optional ARIA role to filter results (button, link, checkbox, radio, textbox, etc.)',
+        },
+      },
+      required: ['text'],
+    },
+  },
+  {
+    name: 'chrome_type_text',
+    description: 'Type text into an input field by its associated label (semantic alternative to chrome_type). Searches for input by: label "for" attribute, parent label, aria-label, placeholder (in order). Returns actionable error with suggestions if input not found or multiple matches. Prefer this over chrome_execute_script for form filling.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        label: {
+          type: 'string',
+          description: 'Label text to search for (searches multiple label sources)',
+        },
+        text: {
+          type: 'string',
+          description: 'Text to type into the input field',
+        },
+      },
+      required: ['label', 'text'],
+    },
+  },
+  {
+    name: 'chrome_extract_interactive',
+    description: 'Extract all interactive elements with their text and metadata. Returns buttons, links, inputs with text, role, selector, visibility, and enabled status. Limited to 100 elements for performance. Use this to discover available interactions before calling chrome_click_text or chrome_type_text.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'chrome_get_property',
+    description: 'Get a property value from an element without script injection. Uses CDP APIs for safe property access. Property name must be alphanumeric + underscore/hyphen only. Use this instead of chrome_execute_script for reading element properties.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: {
+          type: 'string',
+          description: 'CSS selector for the element',
+        },
+        property: {
+          type: 'string',
+          description: 'Property name to retrieve (alphanumeric + underscore/hyphen only)',
+        },
+      },
+      required: ['selector', 'property'],
+    },
+  },
 ];
 
 // Create MCP server
@@ -416,6 +478,59 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           timeout: args?.timeout as number | undefined,
         };
         const result = await chromeController.waitFor(options);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'chrome_click_text': {
+        const text = args?.text as string | undefined;
+        const role = args?.role as string | undefined;
+        if (!text) {
+          throw new Error('Text is required');
+        }
+        const result = await chromeController.clickByText({ text, role });
+        return {
+          content: [{ type: 'text', text: result }],
+        };
+      }
+
+      case 'chrome_type_text': {
+        const label = args?.label as string | undefined;
+        const text = args?.text as string | undefined;
+        if (!label || !text) {
+          throw new Error('Label and text are required');
+        }
+        const result = await chromeController.typeByLabel({ label, text });
+        return {
+          content: [{ type: 'text', text: result }],
+        };
+      }
+
+      case 'chrome_extract_interactive': {
+        const result = await chromeController.extractInteractive();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'chrome_get_property': {
+        const selector = args?.selector as string | undefined;
+        const property = args?.property as string | undefined;
+        if (!selector || !property) {
+          throw new Error('Selector and property are required');
+        }
+        const result = await chromeController.getProperty(selector, property);
         return {
           content: [
             {
