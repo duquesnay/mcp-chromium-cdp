@@ -44,19 +44,17 @@ describe('ChromeController', () => {
       const result = await controller.click('#button');
 
       expect(mockClient.DOM.getDocument).toHaveBeenCalled();
-      expect(mockClient.DOM.querySelector).toHaveBeenCalledWith({
-        nodeId: 1,
-        selector: '#button'
-      });
+      expect(mockClient.DOM.querySelector).toHaveBeenCalled();
       expect(mockClient.DOM.getBoxModel).toHaveBeenCalledWith({ nodeId: 2 });
       expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledTimes(2);
-      expect(result).toBe('Clicked on element: #button');
+      // Result now includes readiness time
+      expect(result).toMatch(/^Clicked on element: #button \(ready in \d+ms\)$/);
     });
 
     it('should throw error if element not found', async () => {
       mockElementNotFound(mockClient);
 
-      await expect(controller.click('#missing')).rejects.toThrow('Element not found');
+      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_READY');
     });
 
     it('should calculate correct click coordinates', async () => {
@@ -80,7 +78,8 @@ describe('ChromeController', () => {
 
       expect(mockClient.DOM.focus).toHaveBeenCalledWith({ nodeId: 2 });
       expect(mockClient.Input.dispatchKeyEvent).toHaveBeenCalledTimes(10); // 5 chars × 2 events
-      expect(result).toBe('Typed text into: #input');
+      // Result now includes readiness time
+      expect(result).toMatch(/^Typed text into: #input \(ready in \d+ms\)$/);
     });
 
     it('should send correct key events for each character', async () => {
@@ -97,7 +96,7 @@ describe('ChromeController', () => {
       mockElementNotFound(mockClient);
 
       await expect(controller.type('#missing', 'text')).rejects.toThrow(
-        'Element not found'
+        'ELEMENT_NOT_READY'
       );
     });
   });

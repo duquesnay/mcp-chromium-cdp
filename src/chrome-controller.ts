@@ -10,6 +10,8 @@ import { PageCheckingService } from './services/page-checking-service';
 import { FormExtractionService } from './services/form-extraction-service';
 import { WaitService } from './services/wait-service';
 import { TextInteractionService } from './services/text-interaction-service';
+import { MessageDetectionService, UIMessage } from './services/message-detection-service';
+import { ElementReadinessService, ReadinessResult } from './services/element-readiness-service';
 
 const execAsync = promisify(exec);
 
@@ -89,6 +91,8 @@ export class ChromeController {
   private waitService: WaitService | null = null;
   private pageCheckingService: PageCheckingService | null = null;
   private textInteractionService: TextInteractionService | null = null;
+  private messageDetectionService: MessageDetectionService | null = null;
+  private elementReadinessService: ElementReadinessService | null = null;
 
   /**
    * Initialize all service instances with the current CDP client
@@ -104,6 +108,8 @@ export class ChromeController {
     this.waitService = new WaitService(this.client);
     this.pageCheckingService = new PageCheckingService(this.client);
     this.textInteractionService = new TextInteractionService(this.client);
+    this.messageDetectionService = new MessageDetectionService(this.client);
+    this.elementReadinessService = new ElementReadinessService(this.client);
   }
 
   /**
@@ -422,17 +428,45 @@ export class ChromeController {
 
   /**
    * Click on an element using a selector
+   * Auto-waits for element to be ready (visible, enabled, stable)
    */
-  async click(selector: string): Promise<string> {
+  async click(selector: string, options?: { timeout?: number }): Promise<string> {
     ValidationService.validateSelector(selector);
     await this.ensureConnected();
 
     try {
-      // Use CDP's DOM API - selector handled safely by protocol
+      // Wait for element to be ready for interaction
+      const readiness = await this.elementReadinessService!.waitForReady(
+        selector,
+        options?.timeout
+      );
+
+      if (!readiness.ready) {
+        const reasons = this.elementReadinessService!.getBlockingReasons(
+          readiness.state
+        );
+        throw new Error(
+          JSON.stringify({
+            error: 'ELEMENT_NOT_READY',
+            field: 'selector',
+            message: `Element not ready for click: ${reasons.join(', ')}`,
+            selector,
+            state: readiness.state,
+            timeElapsed: readiness.timeElapsed,
+            suggestions: [
+              'Wait for page to finish loading',
+              'Check if element is covered by another element',
+              'Increase timeout if element takes longer to appear'
+            ]
+          })
+        );
+      }
+
+      // Element ready - perform click using CDP's DOM API
       const { root } = await this.client!.DOM.getDocument();
       const { nodeId } = await this.client!.DOM.querySelector({
         nodeId: root.nodeId,
-        selector: selector // CDP sanitizes internally
+        selector: selector
       });
 
       if (!nodeId) {
@@ -446,19 +480,21 @@ export class ChromeController {
 
       await this.client!.Input.dispatchMouseEvent({
         type: 'mousePressed',
-        x, y,
+        x,
+        y,
         button: 'left',
         clickCount: 1
       });
 
       await this.client!.Input.dispatchMouseEvent({
         type: 'mouseReleased',
-        x, y,
+        x,
+        y,
         button: 'left',
         clickCount: 1
       });
 
-      return `Clicked on element: ${selector}`;
+      return `Clicked on element: ${selector} (ready in ${readiness.timeElapsed}ms)`;
     } catch (error) {
       throw new Error(`Failed to click: ${error}`);
     }
@@ -466,13 +502,45 @@ export class ChromeController {
 
   /**
    * Type text into an input field
+   * Auto-waits for element to be ready (visible, enabled, stable)
    */
-  async type(selector: string, text: string): Promise<string> {
+  async type(
+    selector: string,
+    text: string,
+    options?: { timeout?: number }
+  ): Promise<string> {
     ValidationService.validateSelector(selector);
     await this.ensureConnected();
 
     try {
-      // Use CDP's DOM API to find and focus the element
+      // Wait for element to be ready for interaction
+      const readiness = await this.elementReadinessService!.waitForReady(
+        selector,
+        options?.timeout
+      );
+
+      if (!readiness.ready) {
+        const reasons = this.elementReadinessService!.getBlockingReasons(
+          readiness.state
+        );
+        throw new Error(
+          JSON.stringify({
+            error: 'ELEMENT_NOT_READY',
+            field: 'selector',
+            message: `Element not ready for typing: ${reasons.join(', ')}`,
+            selector,
+            state: readiness.state,
+            timeElapsed: readiness.timeElapsed,
+            suggestions: [
+              'Wait for page to finish loading',
+              'Check if input field is enabled',
+              'Verify element is not readonly'
+            ]
+          })
+        );
+      }
+
+      // Element ready - use CDP's DOM API to find and focus the element
       const { root } = await this.client!.DOM.getDocument();
       const { nodeId } = await this.client!.DOM.querySelector({
         nodeId: root.nodeId,
@@ -498,7 +566,7 @@ export class ChromeController {
         });
       }
 
-      return `Typed text into: ${selector}`;
+      return `Typed text into: ${selector} (ready in ${readiness.timeElapsed}ms)`;
     } catch (error) {
       throw new Error(`Failed to type: ${error}`);
     }
@@ -604,6 +672,49 @@ export class ChromeController {
     ValidationService.validatePropertyName(property);
     await this.ensureConnected();
     return this.textInteractionService!.getProperty(selector, property);
+  }
+
+  /**
+   * Extract UI messages from the page
+   * Detects toasts, banners, field errors, modals, and console messages
+   */
+  async extractMessages(): Promise<UIMessage[]> {
+    await this.ensureConnected();
+    return this.messageDetectionService!.extractMessages();
+  }
+
+  /**
+   * Wait for a specific message to appear
+   * Useful after form submissions or actions that trigger feedback
+   */
+  async waitForMessage(options: {
+    text?: string;
+    type?: UIMessage['type'];
+    severity?: UIMessage['severity'];
+    timeout?: number;
+  }): Promise<UIMessage | null> {
+    await this.ensureConnected();
+    return this.messageDetectionService!.waitForMessage(options);
+  }
+
+  /**
+   * Check element readiness for interaction
+   * Returns current state without waiting
+   */
+  async checkElementReadiness(selector: string): Promise<ReadinessResult> {
+    ValidationService.validateSelector(selector);
+    await this.ensureConnected();
+
+    const state = await this.elementReadinessService!.checkElementState(
+      selector
+    );
+
+    return {
+      ready:
+        state.visible && state.enabled && state.stable,
+      state,
+      timeElapsed: 0
+    };
   }
 
   /**

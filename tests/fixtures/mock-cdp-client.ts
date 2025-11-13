@@ -48,8 +48,33 @@ export class MockCDPClient {
 
   Runtime = {
     enable: vi.fn().mockResolvedValue(undefined),
-    evaluate: vi.fn().mockResolvedValue({
-      result: { value: 'mock-result' }
+    evaluate: vi.fn().mockImplementation(async ({ expression, returnByValue }) => {
+      // Mock element readiness checks - check first (more specific pattern)
+      // Readiness check script contains both visibility checks AND boundingBox
+      if (expression && expression.includes('isVisible') && expression.includes('isEnabled')) {
+        return {
+          result: {
+            value: {
+              visible: true,
+              enabled: true,
+              boundingBox: { x: 100, y: 200, width: 50, height: 30 }
+            }
+          }
+        };
+      }
+      // Mock stability check - returns just coordinates
+      // Stability check script returns just coordinates after waiting
+      if (expression && expression.includes('rect.x') && expression.includes('rect.y')) {
+        return {
+          result: {
+            value: { x: 100, y: 200, width: 50, height: 30 }
+          }
+        };
+      }
+      // Default response
+      return {
+        result: { value: 'mock-result' }
+      };
     }),
     callFunctionOn: vi.fn().mockResolvedValue({
       result: { value: 'mock-property-value' }
