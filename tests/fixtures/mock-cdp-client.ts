@@ -16,7 +16,10 @@ export class MockCDPClient {
         content: [10, 10, 50, 10, 50, 50, 10, 50] // x1, y1, x2, y2, x3, y3, x4, y4
       }
     }),
-    focus: vi.fn().mockResolvedValue(undefined)
+    focus: vi.fn().mockResolvedValue(undefined),
+    resolveNode: vi.fn().mockResolvedValue({
+      object: { objectId: 'mock-object-id' }
+    })
   };
 
   Input = {
@@ -47,6 +50,9 @@ export class MockCDPClient {
     enable: vi.fn().mockResolvedValue(undefined),
     evaluate: vi.fn().mockResolvedValue({
       result: { value: 'mock-result' }
+    }),
+    callFunctionOn: vi.fn().mockResolvedValue({
+      result: { value: 'mock-property-value' }
     })
   };
 
