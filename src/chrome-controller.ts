@@ -445,7 +445,54 @@ export class ChromeController {
     await this.ensureConnected();
 
     try {
-      // Wait for element to be ready for interaction
+      // For SPA elements, we need to hover BEFORE checking readiness
+      // because hover activates React synthetic event handlers that make elements interactive
+
+      // Step 1: Get element position (needed for both hover and click)
+      const { root } = await this.client!.DOM.getDocument();
+      const { nodeId } = await this.client!.DOM.querySelector({
+        nodeId: root.nodeId,
+        selector: selector
+      });
+
+      if (!nodeId) {
+        throw new Error(
+          JSON.stringify({
+            error: 'ELEMENT_NOT_FOUND',
+            field: 'selector',
+            message: `Element not found: ${selector}`,
+            selector,
+            suggestions: [
+              'Verify selector using chrome_check_page or chrome_extract_interactive',
+              'Check if element is in the DOM (may not have loaded yet)',
+              'Try waiting before clicking (element may load asynchronously)'
+            ]
+          })
+        );
+      }
+
+      const { model } = await this.client!.DOM.getBoxModel({ nodeId });
+      const x = (model.content[0] + model.content[2]) / 2;
+      const y = (model.content[1] + model.content[5]) / 2;
+
+      // Step 2: If ensureInteractive, perform pre-interaction sequence for SPA compatibility
+      // This activates lazy-loaded event handlers before readiness check
+      if (options?.ensureInteractive) {
+        // Hover element (activates React synthetic event handlers)
+        await this.client!.Input.dispatchMouseEvent({
+          type: 'mouseMoved',
+          x,
+          y
+        });
+
+        // Focus element (ensures focus state for React)
+        await this.client!.DOM.focus({ nodeId });
+
+        // Wait 50ms for React synthetic event system to initialize
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Step 3: Now check element readiness (after SPA activation if ensureInteractive)
       const readiness = await this.elementReadinessService!.waitForReady(
         selector,
         options?.timeout
@@ -466,45 +513,14 @@ export class ChromeController {
             suggestions: [
               'Wait for page to finish loading',
               'Check if element is covered by another element',
-              'Increase timeout if element takes longer to appear'
+              'Increase timeout if element takes longer to appear',
+              options?.ensureInteractive ? 'Element may require JavaScript interaction not triggered by hover' : 'Try using ensureInteractive: true for SPA elements'
             ]
           })
         );
       }
 
-      // Element ready - get element info for interaction
-      const { root } = await this.client!.DOM.getDocument();
-      const { nodeId } = await this.client!.DOM.querySelector({
-        nodeId: root.nodeId,
-        selector: selector
-      });
-
-      if (!nodeId) {
-        throw new Error(`Element not found: ${selector}`);
-      }
-
-      // Get element position
-      const { model } = await this.client!.DOM.getBoxModel({ nodeId });
-      const x = (model.content[0] + model.content[2]) / 2;
-      const y = (model.content[1] + model.content[5]) / 2;
-
-      // If ensureInteractive, perform full interaction sequence for SPA compatibility
-      if (options?.ensureInteractive) {
-        // Step 1: Hover element (activates React synthetic event handlers)
-        await this.client!.Input.dispatchMouseEvent({
-          type: 'mouseMoved',
-          x,
-          y
-        });
-
-        // Step 2: Focus element (ensures focus state for React)
-        await this.client!.DOM.focus({ nodeId });
-
-        // Step 3: Wait 50ms for React synthetic event system to initialize
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-
-      // Step 4 (or direct): Perform click using Input API
+      // Step 4: Perform click using Input API
       await this.client!.Input.dispatchMouseEvent({
         type: 'mousePressed',
         x,
@@ -541,7 +557,30 @@ export class ChromeController {
     await this.ensureConnected();
 
     try {
-      // Wait for element to be ready for interaction
+      // Step 1: First check if element exists in DOM
+      const { root } = await this.client!.DOM.getDocument();
+      const { nodeId } = await this.client!.DOM.querySelector({
+        nodeId: root.nodeId,
+        selector: selector
+      });
+
+      if (!nodeId) {
+        throw new Error(
+          JSON.stringify({
+            error: 'ELEMENT_NOT_FOUND',
+            field: 'selector',
+            message: `Element not found: ${selector}`,
+            selector,
+            suggestions: [
+              'Verify selector using chrome_check_page or chrome_extract_interactive',
+              'Check if element is in the DOM (may not have loaded yet)',
+              'Try waiting before typing (element may load asynchronously)'
+            ]
+          })
+        );
+      }
+
+      // Step 2: Now check if element is ready for interaction
       const readiness = await this.elementReadinessService!.waitForReady(
         selector,
         options?.timeout
@@ -568,21 +607,10 @@ export class ChromeController {
         );
       }
 
-      // Element ready - use CDP's DOM API to find and focus the element
-      const { root } = await this.client!.DOM.getDocument();
-      const { nodeId } = await this.client!.DOM.querySelector({
-        nodeId: root.nodeId,
-        selector: selector
-      });
-
-      if (!nodeId) {
-        throw new Error(`Element not found: ${selector}`);
-      }
-
-      // Focus element
+      // Step 3: Focus element
       await this.client!.DOM.focus({ nodeId });
 
-      // Type each character using Input API
+      // Step 4: Type each character using Input API
       for (const char of text) {
         await this.client!.Input.dispatchKeyEvent({
           type: 'keyDown',

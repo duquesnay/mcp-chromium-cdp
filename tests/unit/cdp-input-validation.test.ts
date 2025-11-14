@@ -109,7 +109,7 @@ describe('CDP-based Input Implementation (React-safe)', () => {
     it('should throw error if element not found', async () => {
       mockElementNotFound(mockClient);
 
-      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_READY');
+      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_FOUND');
 
       // Should NOT attempt to click if element doesn't exist
       expect(mockClient.Input.dispatchMouseEvent).not.toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe('CDP-based Input Implementation (React-safe)', () => {
     it('should throw error if element not found', async () => {
       mockElementNotFound(mockClient);
 
-      await expect(controller.type('#missing', 'text')).rejects.toThrow('ELEMENT_NOT_READY');
+      await expect(controller.type('#missing', 'text')).rejects.toThrow('ELEMENT_NOT_FOUND');
 
       // Should NOT attempt to type if element doesn't exist
       expect(mockClient.Input.dispatchKeyEvent).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ describe('CDP-based Input Implementation (React-safe)', () => {
       // Controller throws error for nodeId 0 (element not found)
       mockClient.DOM.querySelector.mockResolvedValue({ nodeId: 0 });
 
-      await expect(controller.click(maliciousSelector)).rejects.toThrow('ELEMENT_NOT_READY');
+      await expect(controller.click(maliciousSelector)).rejects.toThrow('ELEMENT_NOT_FOUND');
 
       // When element not found (nodeId 0), Runtime.evaluate is not called
       // For found elements, selector would be safely JSON.stringify'd in readiness checks
@@ -415,7 +415,7 @@ describe('CDP-based Input Implementation (React-safe)', () => {
     it('should handle nodeId 0 as element not found', async () => {
       mockClient.DOM.querySelector.mockResolvedValue({ nodeId: 0 });
 
-      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_READY');
+      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_FOUND');
 
       // Should not proceed with nodeId 0 (no getBoxModel, no mouse events)
       expect(mockClient.DOM.getBoxModel).not.toHaveBeenCalled();

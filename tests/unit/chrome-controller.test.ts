@@ -54,7 +54,7 @@ describe('ChromeController', () => {
     it('should throw error if element not found', async () => {
       mockElementNotFound(mockClient);
 
-      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_READY');
+      await expect(controller.click('#missing')).rejects.toThrow('ELEMENT_NOT_FOUND');
     });
 
     it('should calculate correct click coordinates', async () => {
@@ -96,7 +96,7 @@ describe('ChromeController', () => {
       mockElementNotFound(mockClient);
 
       await expect(controller.type('#missing', 'text')).rejects.toThrow(
-        'ELEMENT_NOT_READY'
+        'ELEMENT_NOT_FOUND'
       );
     });
   });

@@ -425,24 +425,28 @@
 - Comprehensive tests for SPA interaction patterns
 
 **Implementation Notes**:
-- Create HoverService for CDP Input.dispatchMouseEvent (hover events)
-- Enhance InteractionService.click() with hover → focus → click sequence
-- Add framework detection heuristics (check for React, Vue, Angular globals/attributes)
-- Pattern: hover (mouseover) → focus (mousedown without release) → click (full sequence)
-- Research: React synthetic events vs native events, event bubbling paths
+- ✅ Created HoverService for CDP Input.dispatchMouseEvent (hover events)
+- ✅ Enhanced ChromeController.click() with ensureInteractive flag
+- ✅ Added framework detection (React, Vue, Angular, Svelte) via detectSPAFramework()
+- ✅ **Critical sequence**: Get element → Hover → Focus → Wait 50ms → Check readiness → Click
+- ✅ Fixed click() and type() to check element existence BEFORE readiness (throw ELEMENT_NOT_FOUND vs ELEMENT_NOT_READY)
 
 **Technical Details**:
 - **Problem**: CDP Input.dispatchMouseEvent fires native events, but React uses synthetic event system
-- **Root Cause**: React synthetic event handlers require full interaction sequence (hover → focus → click), not just click
-- **Solution**: Multi-step interaction mimicking real user behavior
-- **Risk**: Framework-specific edge cases, timing between events
+- **Root Cause**: React "lazy" buttons only activate event handlers on hover - checking readiness BEFORE hover fails
+- **Solution**: Hover → focus → wait sequence BEFORE readiness check activates handlers for "lazy" SPA elements
+- **Bug Found**: Original implementation checked readiness then hovered, but SPA elements become ready AFTER hover
+- **Fix Applied**: Reordered sequence in click() to hover → focus → wait → readiness check → click
+- **Evidence**: Testing log showed Attempt #24 with ensureInteractive still failed when hover was after readiness check
 
 **Test Scenarios**:
-- Button triggers modal on React app
-- OAuth flow "Create app" button opens dialog
-- Dropdown menus expand on hover + click
-- Form submission after field focus
-- Event handler verification (mouseenter, mouseover, mousedown, mouseup, click sequence)
+- ✅ Button triggers modal on React app (unit tests with mock CDP)
+- ✅ "Lazy" SPA buttons that require hover to activate handlers (real-world testing on Claude.ai)
+- ✅ Element existence check happens before readiness check (prevents 5s timeout on missing elements)
+- ✅ ELEMENT_NOT_FOUND vs ELEMENT_NOT_READY error differentiation
+- 🔄 Integration test needed: OAuth flow "Create custom connector" button opens modal (requires real Chrome)
+- 🔄 Integration test needed: Dropdown menus expand on hover + click
+- 🔄 Integration test needed: Form submission after field focus
 
 **Source**: REAL_WORLD_USAGE (Sprint 6, Critical Blocker)
 
