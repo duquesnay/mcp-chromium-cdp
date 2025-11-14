@@ -1,7 +1,5 @@
 import * as chromeLauncher from 'chrome-launcher';
 import CDP from 'chrome-remote-interface';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { ValidationService } from './services/validation-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -14,8 +12,6 @@ import { MessageDetectionService, UIMessage } from './services/message-detection
 import { ElementReadinessService, ReadinessResult } from './services/element-readiness-service.js';
 import { ScrollService } from './services/scroll-service.js';
 import { HoverService } from './services/hover-service.js';
-
-const execAsync = promisify(exec);
 
 /**
  * Find Chromium binary on the system
@@ -629,39 +625,50 @@ export class ChromeController {
   }
 
   /**
-   * Open a new tab using AppleScript (Mac-specific)
+   * Open a new tab using CDP Target API (cross-platform)
    */
   async openNewTab(url?: string): Promise<string> {
+    if (url) {
+      ValidationService.validateUrl(url);
+    }
+    await this.ensureConnected();
+
     try {
-      const urlPart = url ? `set URL of active tab of front window to "${url}"` : '';
-      const script = `
-        tell application "Google Chrome"
-          tell front window
-            make new tab
-            ${urlPart}
-          end tell
-          activate
-        end tell
-      `;
-      await execAsync(`osascript -e '${script}'`);
-      return url ? `Opened new tab with URL: ${url}` : 'Opened new tab';
+      const targetUrl = url || 'about:blank';
+      const { targetId } = await this.client!.Target.createTarget({
+        url: targetUrl
+      });
+
+      return url
+        ? `Opened new tab with URL: ${url} (targetId: ${targetId})`
+        : `Opened new blank tab (targetId: ${targetId})`;
     } catch (error) {
       throw new Error(`Failed to open new tab: ${error}`);
     }
   }
 
   /**
-   * Close the current tab using AppleScript (Mac-specific)
+   * Close the current tab using CDP Target API (cross-platform)
    */
   async closeTab(): Promise<string> {
+    await this.ensureConnected();
+
     try {
-      const script = `
-        tell application "Google Chrome"
-          close active tab of front window
-        end tell
-      `;
-      await execAsync(`osascript -e '${script}'`);
-      return 'Closed current tab';
+      // Get current target info
+      const { targetInfos } = await this.client!.Target.getTargets();
+      const currentTarget = targetInfos.find(
+        (t: { type: string; attached: boolean }) => t.type === 'page' && t.attached
+      );
+
+      if (!currentTarget) {
+        throw new Error('No active tab found to close');
+      }
+
+      await this.client!.Target.closeTarget({
+        targetId: currentTarget.targetId
+      });
+
+      return `Closed tab (targetId: ${currentTarget.targetId})`;
     } catch (error) {
       throw new Error(`Failed to close tab: ${error}`);
     }
